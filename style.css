@@ -1,0 +1,29 @@
+/* ========== 基本レイアウト ========== */
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,blinkmacsystemfont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+body{line-height:1.5;color:#222;background:#f6f9fc}
+header{background:#005dbb;color:#fff;padding:1rem 1.2rem;display:flex;flex-wrap:wrap;align-items:center;gap:1rem}
+header h1{font-size:1.5rem;flex:1 0 auto}
+nav button{margin:.25rem;border:none;padding:.4rem.8rem;border-radius:4px;background:#fff;color:#005dbb;cursor:pointer;font-size:.9rem}
+nav button.active,nav button:hover{background:#cce1ff}
+
+/* ========== コンテンツカード ========== */
+#content{max-width:960px;margin:1.5rem auto;padding:0 .8rem}
+.paper-card{background:#fff;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,.08);padding:1rem;margin-bottom:1.2rem}
+.paper-card h2{font-size:1.2rem;color:#005dbb}
+.paper-meta{font-size:.85rem;margin:.3rem 0 .8rem;color:#555}
+.paper-section{margin:.4rem 0}
+.paper-section-title{font-weight:600;margin-right:.3rem}
+.controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.controls button{border:none;background:#e6f0ff;color:#005dbb;padding:.3rem.6rem;border-radius:4px;cursor:pointer;font-size:.8rem}
+.controls button.active{background:#005dbb;color:#fff}
+textarea.note-input{width:100%;min-height:3.5rem;margin-top:.6rem;padding:.5rem;border:1px solid #aaa;border-radius:4px;font-size:.85rem}
+
+/* ========== ページネーション ========== */
+#pagination{display:flex;justify-content:center;align-items:center;gap:.4rem;margin:2rem 0}
+#pagination button{border:none;background:#005dbb;color:#fff;padding:.4rem.8rem;border-radius:4px;font-size:.85rem;cursor:pointer}
+#pagination button:disabled{opacity:.4;cursor:default}
+#pagination span{font-size:.9rem;color:#005dbb}
+
+/* ========== タグ表示 ========== */
+.tag{display:inline-block;background:#cce1ff;color:#003a80;padding:.15rem.5rem;margin:.15rem;border-radius:12px;font-size:.75rem}
+input.tag-input{width:9rem;font-size:.8rem;padding:.2rem.4rem;border:1px solid #aaa;border-radius:4px}
