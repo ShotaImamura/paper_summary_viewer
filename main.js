@@ -29,14 +29,15 @@ const store = {
 };
 
 // ----------- DOM 要素 ----------------
-const $content   = document.getElementById('content');
-const $pagination= document.getElementById('pagination');
-const $langEnBtn = document.getElementById('lang-en');
-const $langJaBtn = document.getElementById('lang-ja');
-const $btnAll    = document.getElementById('view-all');
-const $btnBM     = document.getElementById('view-bookmarks');
-const $btnTags   = document.getElementById('view-tags');
-const $btnJump   = document.getElementById('jump-checkpoint');
+const $content         = document.getElementById('content');
+const $paginationTop   = document.getElementById('pagination-top');
+const $paginationBottom= document.getElementById('pagination');
+const $langEnBtn       = document.getElementById('lang-en');
+const $langJaBtn       = document.getElementById('lang-ja');
+const $btnAll          = document.getElementById('view-all');
+const $btnBM           = document.getElementById('view-bookmarks');
+const $btnTags         = document.getElementById('view-tags');
+const $btnJump         = document.getElementById('jump-checkpoint');
 
 // ----------- イベント登録 ----------------
 window.addEventListener('DOMContentLoaded', init);
@@ -57,13 +58,12 @@ async function init(){
     console.error(e);
     return;
   }
-  render();
+  setLanguage(currentLang); // 初期レンダリング
 }
 
 /* ===================== 言語切替 ===================== */
 function setLanguage(lang){
   currentLang = lang;
-  // ボタン強調
   $langEnBtn.classList.toggle('lang-active', lang==='en');
   $langJaBtn.classList.toggle('lang-active', lang==='ja');
   render();
@@ -98,26 +98,56 @@ function render(){
   // 本文
   $content.innerHTML = '';
   if(currentView==='tags' && !currentTag){
-    renderTagListView(); return;
+    renderTagListView(); 
+  }else{
+    slice.forEach(paper=> $content.appendChild(createCard(paper)));
   }
-  slice.forEach(paper=> $content.appendChild(createCard(paper)));
 
-  renderPagination(totalPages);
+  // 上下ページネーション
+  renderPagination(totalPages, $paginationTop);
+  renderPagination(totalPages, $paginationBottom);
 }
 
-function renderPagination(total){
-  $pagination.innerHTML='';
+/* ---------------- ページネーション描画 ---------------- */
+function renderPagination(total, container){
+  container.innerHTML='';
+
+  /* Prev */
   const prev = document.createElement('button');
   prev.textContent='Prev';
   prev.disabled = currentPage===1;
   prev.onclick  = ()=>{currentPage--;render();};
+  container.appendChild(prev);
+
+  /* ページ番号入力 */
+  const input = document.createElement('input');
+  input.type='number';
+  input.min = 1; input.max = total;
+  input.value = currentPage;
+  input.onkeydown = e=>{
+    if(e.key==='Enter') jumpToPage(Number(input.value), total);
+  };
+  input.onblur = ()=> jumpToPage(Number(input.value), total);
+  container.appendChild(input);
+
+  /* `/ total` 表示 */
+  const info = document.createElement('span');
+  info.textContent = ` / ${total}`;
+  container.appendChild(info);
+
+  /* Next */
   const next = document.createElement('button');
   next.textContent='Next';
   next.disabled = currentPage===total;
   next.onclick  = ()=>{currentPage++;render();};
-  const info = document.createElement('span');
-  info.textContent=`${currentPage} / ${total}`;
-  $pagination.append(prev,info,next);
+  container.appendChild(next);
+}
+
+/* ページジャンプ（不正値ガード） */
+function jumpToPage(page, total){
+  if(Number.isNaN(page)) return;
+  page = Math.max(1, Math.min(total, page));
+  if(page !== currentPage){ currentPage = page; render(); }
 }
 
 /* ------------------ 個別カード生成 ------------------ */

@@ -2,18 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Research Papers Viewer</title>
+  <title>Research Papers Viewer for CHI</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>Research Papers Viewer</h1>
+    <h1>Research Papers Viewer for CHI2025</h1>
 
     <nav id="top-controls">
-      <!-- 言語切替 -->
-      <button id="lang-en" class="lang-btn">EN</button>
-      <button id="lang-ja" class="lang-btn">JP</button>
+      <!-- ★ 言語切替を灰色のラッパーで囲む -->
+      <div id="lang-switch">
+        <button id="lang-en" class="lang-btn">EN</button>
+        <button id="lang-ja" class="lang-btn">JP</button>
+      </div>
 
       <!-- ビュー切替 -->
       <button id="view-all"      class="active">All Papers</button>
@@ -23,9 +25,13 @@
     </nav>
   </header>
 
+  <div id="pagination-top"></div>
+
   <main id="content"></main>
 
-  <footer><div id="pagination"></div></footer>
+  <footer>
+    <div id="pagination"></div>
+  </footer>
 
   <script src="main.js"></script>
 </body>
