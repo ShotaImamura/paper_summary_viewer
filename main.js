@@ -1,9 +1,3 @@
-/**************************************************************
- * Research Papers Viewer – 全機能クライアントサイド実装
- * Author: ChatGPT (o3)
- * ************************************************************/
-
-// ----------- 設定 ----------------
 const PAGE_SIZE = 20;              // 一覧 1 ページあたりの件数
 const DATA_FILE = 'CHI2025_intermediate_summaries.json';// 読み込む JSON
 
@@ -315,19 +309,35 @@ function setCheckpoint(id){
   alert('Checkpoint saved!');
 }
 
+/* ---------- ★ jumpToCheckpoint ---------- */
 function jumpToCheckpoint(){
   const id = store.load(store.keyCheckpointID,null);
   if(!id){ alert('No checkpoint set.'); return; }
-  const el = document.getElementById(`paper-${id}`);
-  if(el){
-    window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 20, behavior:'smooth'});
-  }else{
-    const idx = papers.findIndex(p=>p.id===id);
-    if(idx<0){ alert('Checkpoint paper not found.'); return; }
-    currentPage = Math.floor(idx / PAGE_SIZE) + 1;
-    render();
-    setTimeout(jumpToCheckpoint,200);
-  }
+
+  /* 全論文リスト上で対象インデックスとページを確定 */
+  const idx = papers.findIndex(p=>p.id===id);
+  if(idx<0){ alert('Checkpoint paper not found.'); return; }
+  const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+
+  /* ===== ビューを All Papers に強制切替え ===== */
+  currentView = 'all';
+  currentTag  = null;
+  currentPage = targetPage;
+
+  // ビュー切替ボタンの見た目も更新
+  [$btnAll,$btnBM,$btnTags].forEach(b=>b.classList.remove('active'));
+  $btnAll.classList.add('active');
+
+  // 再描画
+  render();
+
+  /* 描画反映後にスクロール */
+  setTimeout(()=>{
+    const el = document.getElementById(`paper-${id}`);
+    if(el){
+      window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 20, behavior:'smooth'});
+    }
+  }, 100);
 }
 
 /* ------------------ ユーティリティ ------------------ */
