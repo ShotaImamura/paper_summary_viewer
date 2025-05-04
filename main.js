@@ -5,10 +5,8 @@
 
 // ----------- 設定 ----------------
 const PAGE_SIZE = 20;              // 一覧 1 ページあたりの件数
-const DATA_FILE = 'CHI2025_intermediate_summaries.json';// ★ここを任意のファイル名に変更★
+const DATA_FILE = 'CHI2025_intermediate_summaries.json';// 読み込む JSON
 
-/*  以下のコードは前回提示した内容と同一です。
-    （動作に必要なロジックをそのまま保持しています） */
 // ----------- 状態 ----------------
 let papers = [];                // 取得した全論文
 let currentPage = 1;
@@ -33,7 +31,8 @@ const store = {
 // ----------- DOM 要素 ----------------
 const $content   = document.getElementById('content');
 const $pagination= document.getElementById('pagination');
-const $langBtn   = document.getElementById('lang-toggle');
+const $langEnBtn = document.getElementById('lang-en');
+const $langJaBtn = document.getElementById('lang-ja');
 const $btnAll    = document.getElementById('view-all');
 const $btnBM     = document.getElementById('view-bookmarks');
 const $btnTags   = document.getElementById('view-tags');
@@ -41,13 +40,10 @@ const $btnJump   = document.getElementById('jump-checkpoint');
 
 // ----------- イベント登録 ----------------
 window.addEventListener('DOMContentLoaded', init);
-$langBtn.addEventListener('click', () => {
-  currentLang = currentLang === 'en' ? 'ja' : 'en';
-  $langBtn.textContent = currentLang === 'en' ? '日本語' : 'English';
-  render();
-});
-$btnAll.addEventListener('click', () => setView('all'));
-$btnBM .addEventListener('click', () => setView('bookmarks'));
+$langEnBtn.addEventListener('click', () => setLanguage('en'));
+$langJaBtn.addEventListener('click', () => setLanguage('ja'));
+$btnAll .addEventListener('click', () => setView('all'));
+$btnBM  .addEventListener('click', () => setView('bookmarks'));
 $btnTags.addEventListener('click', () => setView('tags'));
 $btnJump.addEventListener('click', jumpToCheckpoint);
 
@@ -64,14 +60,21 @@ async function init(){
   render();
 }
 
+/* ===================== 言語切替 ===================== */
+function setLanguage(lang){
+  currentLang = lang;
+  // ボタン強調
+  $langEnBtn.classList.toggle('lang-active', lang==='en');
+  $langJaBtn.classList.toggle('lang-active', lang==='ja');
+  render();
+}
+
 /* ===================== 画面レンダリング ===================== */
 function setView(v, tag=null){
-  currentView = v;
-  currentTag  = tag;
-  currentPage = 1;
-  for(const b of [$btnAll,$btnBM,$btnTags]) b.classList.remove('active');
+  currentView = v; currentTag = tag; currentPage = 1;
+  [$btnAll,$btnBM,$btnTags].forEach(b=>b.classList.remove('active'));
   if(v==='all')       $btnAll.classList.add('active');
-  else if(v==='bookmarks') $btnBM .classList.add('active');
+  else if(v==='bookmarks') $btnBM.classList.add('active');
   else if(v==='tags')      $btnTags.classList.add('active');
   render();
 }
@@ -99,7 +102,6 @@ function render(){
   }
   slice.forEach(paper=> $content.appendChild(createCard(paper)));
 
-  // ページネーション
   renderPagination(totalPages);
 }
 
@@ -123,7 +125,9 @@ function createCard(p){
   const notes = store.load(store.keyNotes,{});
   const tags  = store.load(store.keyTags ,{});
   const bm    = store.load(store.keyBookmarks,[]);
+  const checkpointID = store.load(store.keyCheckpointID,null);
   const isBM  = bm.includes(p.id);
+  const isCP  = checkpointID === p.id;
 
   const c = document.createElement('article');
   c.className='paper-card'; c.id = `paper-${p.id}`;
@@ -142,30 +146,31 @@ function createCard(p){
   link.style.display='inline-block'; link.style.marginBottom='.6rem';
   c.appendChild(link);
 
-  addSection(c, 'Summary',      p[`summary_${langKey()}`]);
-  addSection(c, 'Problem',      p[`problem_${langKey()}`]);
-  addSection(c, 'Method',       p[`method_${langKey()}`]);
-  addSection(c, 'Results',      p[`results_${langKey()}`]);
+  addSection(c, 'Summary', p[`summary_${langKey()}`]);
+  addSection(c, 'Problem', p[`problem_${langKey()}`]);
+  addSection(c, 'Method',  p[`method_${langKey()}`]);
+  addSection(c, 'Results', p[`results_${langKey()}`]);
 
   /* ----- 操作ボタン群 ----- */
   const ctrl = document.createElement('div'); ctrl.className='controls';
 
-  const bmBtn = mkBtn(isBM?'★ Bookmarked':'☆ Bookmark', ()=>toggleBookmark(p.id));
+  const bmBtn = mkBtn(isBM?'★ Bookmarked':'☆ Bookmark', ()=>toggleBookmark(p.id));
   if(isBM) bmBtn.classList.add('active');
   ctrl.appendChild(bmBtn);
 
-  const noteBtn = mkBtn('Notes', ()=>toggleNoteArea());
+  const noteBtn = mkBtn('Edit Note', ()=>toggleNoteArea());
   ctrl.appendChild(noteBtn);
 
-  const tagBtn = mkBtn('Add Tag', ()=>toggleTagInput());
+  const tagBtn  = mkBtn('Add Tag', ()=>toggleTagInput());
   ctrl.appendChild(tagBtn);
 
-  const cpBtn = mkBtn('Mark to Here', ()=>setCheckpoint(p.id));
+  const cpBtn   = mkBtn('Checkpoint', ()=>setCheckpoint(p.id));
+  if(isCP) cpBtn.classList.add('checkpoint-active');
   ctrl.appendChild(cpBtn);
 
   c.appendChild(ctrl);
 
-  /* ----- メモ ----- */
+  /* ----- メモ入力 ----- */
   const noteArea = document.createElement('textarea');
   noteArea.className='note-input';
   noteArea.placeholder='Write your notes here…';
@@ -174,12 +179,15 @@ function createCard(p){
   noteArea.oninput = ()=>saveNote(p.id, noteArea.value);
   c.appendChild(noteArea);
 
-  /* ----- タグ表示 & 追加入力 ----- */
-  const tagWrap = document.createElement('div');
-  tagWrap.style.marginTop='.5rem';
+  /* ----- メモ表示 ----- */
+  const noteDisplay = document.createElement('div');
+  noteDisplay.className='note-display';
+  if(notes[p.id]) noteDisplay.textContent = notes[p.id]; else noteDisplay.style.display='none';
+  c.appendChild(noteDisplay);
 
-  const tagList = document.createElement('div');
-  tagWrap.appendChild(tagList);
+  /* ----- タグ表示 & 追加入力 ----- */
+  const tagWrap = document.createElement('div'); tagWrap.style.marginTop='.5rem';
+  const tagList = document.createElement('div'); tagWrap.appendChild(tagList);
 
   const tagInput = document.createElement('input');
   tagInput.type='text'; tagInput.className='tag-input';
@@ -197,15 +205,31 @@ function createCard(p){
   /* ----- 内部関数 ----- */
   function langKey(){ return currentLang==='en'?'english':'japanese';}
   function mkBtn(txt,fn){ const b=document.createElement('button');b.textContent=txt;b.onclick=fn;return b;}
+
   function toggleNoteArea(){ noteArea.style.display = noteArea.style.display==='none'?'block':'none';}
   function toggleTagInput(){ tagInput.style.display = tagInput.style.display==='none'?'inline-block':'none';}
+
   function updateTagList(){
     tagList.innerHTML='';
     (tags[p.id]??[]).forEach(t=>{
-      const s=document.createElement('span');s.className='tag';s.textContent=t;s.onclick=()=>setView('tags',t);
-      tagList.appendChild(s);
+      const span=document.createElement('span'); span.className='tag'; span.textContent=t;
+      span.onclick = ()=>setView('tags',t);
+      // 削除ボタン
+      const del=document.createElement('button'); del.textContent='×'; del.className='tag-del';
+      del.onclick = (e)=>{ e.stopPropagation(); removeTag(p.id,t); };
+      span.appendChild(del);
+      tagList.appendChild(span);
     });
   }
+
+  // メモ表示エリア更新
+  noteArea.addEventListener('input', ()=>{
+    if(noteArea.value.trim()){
+      noteDisplay.style.display='block'; noteDisplay.textContent = noteArea.value;
+    }else{
+      noteDisplay.style.display='none'; noteDisplay.textContent='';
+    }
+  });
 
   return c;
 }
@@ -215,8 +239,7 @@ function toggleBookmark(id){
   let bm = store.load(store.keyBookmarks,[]);
   const idx = bm.indexOf(id);
   if(idx>=0) bm.splice(idx,1); else bm.push(id);
-  store.save(store.keyBookmarks,bm);
-  render();
+  store.save(store.keyBookmarks,bm); render();
 }
 
 function saveNote(id, text){
@@ -231,16 +254,18 @@ function addTag(id, tag){
   store.save(store.keyTags,tags);
 }
 
+function removeTag(id, tag){
+  const tags = store.load(store.keyTags,{});
+  if(tags[id]) tags[id] = tags[id].filter(t=>t!==tag);
+  store.save(store.keyTags,tags); render();
+}
+
 function renderTagListView(){
   $content.innerHTML='';
   const tags = store.load(store.keyTags,{});
   const all = new Set(Object.values(tags).flat());
-  if(all.size===0){
-    $content.textContent='No tags yet.';
-    return;
-  }
-  const wrap=document.createElement('div');
-  wrap.className='controls';
+  if(all.size===0){ $content.textContent='No tags yet.'; return; }
+  const wrap=document.createElement('div'); wrap.className='controls';
   all.forEach(t=>{
     const b=document.createElement('button');
     b.textContent=`${t} (${countTag(t)})`;
@@ -256,24 +281,22 @@ function renderTagListView(){
 
 function setCheckpoint(id){
   store.save(store.keyCheckpointID, id);
+  render();
   alert('Checkpoint saved!');
 }
 
 function jumpToCheckpoint(){
   const id = store.load(store.keyCheckpointID,null);
-  if(!id){
-    alert('No checkpoint set.'); return;
-  }
+  if(!id){ alert('No checkpoint set.'); return; }
   const el = document.getElementById(`paper-${id}`);
   if(el){
     window.scrollTo({top: el.getBoundingClientRect().top + window.scrollY - 20, behavior:'smooth'});
   }else{
-    // 別ページにある場合はそのページを探す
     const idx = papers.findIndex(p=>p.id===id);
-    if(idx<0){alert('Checkpoint paper not found.');return;}
+    if(idx<0){ alert('Checkpoint paper not found.'); return; }
     currentPage = Math.floor(idx / PAGE_SIZE) + 1;
     render();
-    setTimeout(jumpToCheckpoint,200); // 再帰呼び出しでスクロール
+    setTimeout(jumpToCheckpoint,200);
   }
 }
 

@@ -11,8 +11,12 @@
     <h1>Research Papers Viewer</h1>
 
     <nav id="top-controls">
-      <button id="lang-toggle" aria-label="Toggle language">日本語</button>
-      <button id="view-all"      class="active">All Papers</button>
+      <!-- 言語切替 -->
+      <button id="lang-en" class="lang-btn">EN</button>
+      <button id="lang-ja" class="lang-btn">JP</button>
+
+      <!-- ビュー切替 -->
+      <button id="view-all"      class="active">All Papers</button>
       <button id="view-bookmarks">Bookmarks</button>
       <button id="view-tags">Tags</button>
       <button id="jump-checkpoint">Jump to Checkpoint</button>
@@ -21,9 +25,7 @@
 
   <main id="content"></main>
 
-  <footer>
-    <div id="pagination"></div>
-  </footer>
+  <footer><div id="pagination"></div></footer>
 
   <script src="main.js"></script>
 </body>
