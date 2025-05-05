@@ -135,18 +135,26 @@ function mergeBookmarks(local, remote) {
   return Array.from(new Set([...(local||[]), ...(remote||[])]));
 }
 function mergeNotes(local = {}, remote = {}) {
-  const result = {};
-  const allIDs = new Set([...Object.keys(local), ...Object.keys(remote)]);
-  allIDs.forEach(id => {
-    const r = remote[id], l = local[id];
-    if (r != null && l != null) {
-      result[id] = `クラウド：${r}\n\nブラウザ：${l}`;
-    } else {
-      result[id] = l != null ? l : r;
-    }
-  });
-  return result;
-}
+    const result = {};
+    const allIDs = new Set([...Object.keys(local), ...Object.keys(remote)]);
+    allIDs.forEach(id => {
+      const l = local[id];
+      const r = remote[id];
+      if (l != null && r != null) {
+        if (l === r) {
+          // ローカルとクラウドが同じ内容ならそのまま
+          result[id] = l;
+        } else {
+          // 違うなら両方残す
+          result[id] = `クラウド：${r}\n\nブラウザ：${l}`;
+        }
+      } else {
+        // 片方しかなければそのまま
+        result[id] = l != null ? l : r;
+      }
+    });
+    return result;
+  }
 function mergeTags(local, remote) {
   const allKeys = new Set([...Object.keys(local||{}), ...Object.keys(remote||{})]);
   const merged = {};
@@ -339,17 +347,37 @@ function createCard(p){
 
   /* ----- メモ入力 ----- */
   const noteArea = document.createElement('textarea');
-  noteArea.className='note-input';
-  noteArea.placeholder='Write your notes here…';
-  noteArea.value = notes[p.id]??'';
-  noteArea.style.display='none';
-  noteArea.oninput = ()=>saveNote(p.id, noteArea.value);
+  noteArea.className = 'note-input';
+  noteArea.placeholder = 'Write your notes here…';
+  noteArea.value = notes[p.id] ?? '';
+  noteArea.style.display = 'none';
+  
+  // input イベントリスナー：ローカル表示の更新のみ行う
+  noteArea.addEventListener('input', e => {
+      const text = e.target.value;
+      // noteDisplay をリアルタイム更新
+      if (text.trim()) {
+          noteDisplay.style.display = 'block';
+          noteDisplay.textContent = text;
+      } else {
+          noteDisplay.style.display = 'none';
+      }
+      // ここでは saveNote を呼び出さない！
+  });
+  
+  // blur イベントリスナー：フォーカスが外れたら保存・同期
+  noteArea.addEventListener('blur', e => {
+      const text = e.target.value;
+      // ローカル＆クラウドに保存
+      saveNote(p.id, text);
+  });
+  
   c.appendChild(noteArea);
-
+  
   /* ----- メモ表示 ----- */
   const noteDisplay = document.createElement('div');
-  noteDisplay.className='note-display';
-  if(notes[p.id]) noteDisplay.textContent = notes[p.id]; else noteDisplay.style.display='none';
+  noteDisplay.className = 'note-display';
+  if (notes[p.id]) noteDisplay.textContent = notes[p.id]; else noteDisplay.style.display = 'none';
   c.appendChild(noteDisplay);
 
   /* ----- タグ表示 & 追加入力 ----- */
@@ -419,13 +447,14 @@ function pushCloud(){
   }
   
   /* --- メモ保存 --- */
+
   function saveNote(id, text){
-    const notes = store.load(store.keyNotes,{});
-    text.trim() ? notes[id] = text : delete notes[id];
+    const notes = store.load(store.keyNotes, {});
+    if (text.trim()) notes[id] = text;
+    else             delete notes[id];
     store.save(store.keyNotes, notes);
-    render();
     pushCloud();
-  }
+    }
   
   /* --- タグ追加 --- */
   function addTag(id, tag){
