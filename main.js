@@ -185,24 +185,16 @@ async function syncFromCloud(uid){
 
 // ----------- リアルタイム同期 ----------------
 function subscribeCloud(uid){
-  const docRef = doc(collection(db, 'user_states'), uid);
-  onSnapshot(docRef, snap => {
-    if (!snap.exists()) return;
-    const r  = snap.data();
-    const lB = store.load(store.keyBookmarks, []);
-    const lN = store.load(store.keyNotes, {});
-    const lT = store.load(store.keyTags, {});
-    const lC = store.load(store.keyCheckpointID, null);
-    const mB = mergeBookmarks(lB, r.bookmarks);
-    const mN = mergeNotes(lN, r.notes);
-    const mT = mergeTags(lT, r.tags);
-    const mC = lC || r.checkpoint || null;
-    store.save(store.keyBookmarks,    mB);
-    store.save(store.keyNotes,        mN);
-    store.save(store.keyTags,         mT);
-    store.save(store.keyCheckpointID, mC);
-    render();
-  });
+    const ref = doc(collection(db,'user_states'),uid);
+    onSnapshot(ref, snap=>{
+      if(!snap.exists()) return;
+      const d = snap.data();
+      store.save(store.keyBookmarks,    d.bookmarks    || []);
+      store.save(store.keyNotes,        d.notes        || {});
+      store.save(store.keyTags,         d.tags         || {});
+      store.save(store.keyCheckpointID, d.checkpoint   || null);
+      render();
+    });
 }
 
 // ----------- ローカル → クラウド同期 -------------
