@@ -7,6 +7,7 @@ let currentPage = 1;
 let currentLang = 'en';         // 'en' or 'ja'
 let currentView = 'all';        // 'all' | 'bookmarks' | 'tags'
 let currentTag  = null;         // tags view 時の選択タグ
+let searchKeywords = [];        // AND 検索キーワード（小文字化済み）
 
 // ----------- 永続データ (localStorage) -------------
 const store = {
@@ -32,6 +33,8 @@ const $btnAll          = document.getElementById('view-all');
 const $btnBM           = document.getElementById('view-bookmarks');
 const $btnTags         = document.getElementById('view-tags');
 const $btnJump         = document.getElementById('jump-checkpoint');
+const $searchInput     = document.getElementById('search-input');
+const $searchBtn       = document.getElementById('search-btn');
 
 // ----------- イベント登録 ----------------
 window.addEventListener('DOMContentLoaded', init);
@@ -41,6 +44,8 @@ $btnAll .addEventListener('click', () => setView('all'));
 $btnBM  .addEventListener('click', () => setView('bookmarks'));
 $btnTags.addEventListener('click', () => setView('tags'));
 $btnJump.addEventListener('click', jumpToCheckpoint);
+$searchBtn.addEventListener('click', applySearch);
+$searchInput.addEventListener('keydown', e => { if(e.key==='Enter') applySearch(); });
 
 // ----------- 初期化 ----------------
 async function init(){
@@ -52,6 +57,23 @@ async function init(){
     console.error(e);
     return;
   }
+
+  /* ① ========= 事前に全文検索用文字列を生成 ========= */
+  papers.forEach(p=>{
+    p.search_en = [
+      p.title, p.authors, p.journal,
+      p.summary_english||'', p.problem_english||'',
+      p.method_english||'',  p.results_english||''
+    ].join(' ').toLowerCase();
+
+    p.search_ja = [
+      p.title, p.authors, p.journal,
+      p.summary_japanese||'', p.problem_japanese||'',
+      p.method_japanese||'',  p.results_japanese||''
+    ].join(' ').toLowerCase();
+  });
+  /* ================================================ */
+
   setLanguage(currentLang); // 初期レンダリング
 }
 
@@ -60,6 +82,14 @@ function setLanguage(lang){
   currentLang = lang;
   $langEnBtn.classList.toggle('lang-active', lang==='en');
   $langJaBtn.classList.toggle('lang-active', lang==='ja');
+  render();
+}
+
+/* ===================== キーワード検索適用 ===================== */
+function applySearch(){
+  const raw = $searchInput.value.trim().toLowerCase();
+  searchKeywords = raw ? raw.split(/\s+/) : [];
+  currentPage = 1;
   render();
 }
 
@@ -74,9 +104,9 @@ function setView(v, tag=null){
 }
 
 function render(){
-  let list = [...papers];
+  let list = [...papers]; // ← All Papers ビューでは **全件** が初期対象
 
-  // ビュー別フィルタ
+  /* ビュー別フィルタ */
   if(currentView==='bookmarks'){
     const bm = store.load(store.keyBookmarks, []);
     list = list.filter(p=>bm.includes(p.id));
@@ -85,19 +115,26 @@ function render(){
     list = list.filter(p=>(tags[p.id]??[]).includes(currentTag));
   }
 
+  /* ② ========= 検索フィルタ（高速化版） ========= */
+  if(searchKeywords.length){
+    const field = currentLang==='en' ? 'search_en' : 'search_ja';
+    list = list.filter(paper =>
+      searchKeywords.every(kw => paper[field].includes(kw))
+    );
+  }
+  /* ============================================ */
+
   const totalPages = Math.max(1, Math.ceil(list.length/PAGE_SIZE));
   currentPage = Math.min(currentPage, totalPages);
   const slice = list.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
 
-  // 本文
   $content.innerHTML = '';
   if(currentView==='tags' && !currentTag){
-    renderTagListView(); 
-  }else{
+    renderTagListView();
+  } else {
     slice.forEach(paper=> $content.appendChild(createCard(paper)));
   }
 
-  // 上下ページネーション
   renderPagination(totalPages, $paginationTop);
   renderPagination(totalPages, $paginationBottom);
 }

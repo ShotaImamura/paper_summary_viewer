@@ -3,7 +3,7 @@
 body{line-height:1.5;color:#222;background:#f6f9fc}
 header{background:#005dbb;color:#fff;padding:1rem 1.2rem;display:flex;flex-wrap:wrap;align-items:center;gap:1rem}
 header h1{font-size:1.5rem;flex:1 0 auto}
-nav button{margin:.25rem;border:none;padding:.4rem.8rem;border-radius:4px;background:#fff;color:#005dbb;cursor:pointer;font-size:.9rem}
+nav button{margin:.25rem;border:none;padding:.4rem .8rem;border-radius:4px;background:#fff;color:#005dbb;cursor:pointer;font-size:.9rem}
 nav button.active,nav button:hover{background:#cce1ff}
 
 /* ========== 言語切替（くり抜きデザイン） ========== */
@@ -11,20 +11,45 @@ nav button.active,nav button:hover{background:#cce1ff}
   background:#c4c4c4;
   border-radius:8px;
   display:inline-flex;
-  overflow:hidden;          /* 角丸に合わせてはみ出しカット */
+  overflow:hidden;
 }
 .lang-btn{
-  margin:0;                 /* 余白ゼロでピッタリ並べる */
+  margin:0;
   padding:.4rem 1rem;
-  background:transparent;   /* 背面の灰色を透過表示 */
+  background:transparent;
   color:#005dbb;
   border:none;
   font-size:.9rem;
   cursor:pointer;
 }
 .lang-btn.lang-active{
-  background:#fff;          /* 選択中だけ白く抜ける */
+  background:#fff;
   color:#005dbb;
+}
+
+/* ========== 検索コンテナ ========== */
+.search-container{
+  display:inline-flex;
+  align-items:center;
+  margin-left:1rem;
+}
+.search-input{
+  padding:.4rem .6rem;
+  font-size:.85rem;
+  border:1px solid #005dbb;
+  border-radius:4px 0 0 4px;
+  outline:none;
+}
+/* 検索ボタン */
+.search-btn{
+  padding:.4rem .8rem;
+  font-size:.85rem;
+  border:1px solid #005dbb;
+  border-left:none;
+  border-radius:0 4px 4px 0;
+  background:#cce1ff;
+  color:#003a80;
+  cursor:pointer;
 }
 
 /* ========== コンテンツカード ========== */
