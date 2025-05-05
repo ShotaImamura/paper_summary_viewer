@@ -1,42 +1,33 @@
 // main.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-  getFirestore,
-  collection,
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot
+  getFirestore, collection, doc, getDoc, setDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getAnalytics, setUserId } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
-// ----------- 設定 ----------------
+/* ===== 設定 ===== */
 const PAGE_SIZE = 20;
 const DATA_FILE = 'CHI2025_intermediate_summaries.json';
 
-// ----------- Firebase 初期化 ----------------
+/* ===== Firebase 初期化 ===== */
 const firebaseConfig = {
-    apiKey: "AIzaSyAJitOyeUsXrJ0Y9WmjLzFILpw808verL0",
-    authDomain: "serendipitywall.firebaseapp.com",
-    projectId: "serendipitywall",
-    storageBucket: "serendipitywall.firebasestorage.app",
-    messagingSenderId: "1045879297647",
-    appId: "1:1045879297647:web:dd5f83773b3dc796ca9f9a",
-    measurementId: "G-LC3BG63D92"
-  };
+  apiKey: "AIzaSyAJitOyeUsXrJ0Y9WmjLzFILpw808verL0",
+  authDomain: "serendipitywall.firebaseapp.com",
+  projectId: "serendipitywall",
+  storageBucket: "serendipitywall.appspot.com",          // ← 修正
+  messagingSenderId: "1045879297647",
+  appId: "1:1045879297647:web:dd5f83773b3dc796ca9f9a",
+  measurementId: "G-LC3BG63D92"
+};
 const app       = initializeApp(firebaseConfig);
 const auth      = getAuth(app);
 const db        = getFirestore(app);
 const analytics = getAnalytics(app);
 
-// ----------- 状態 & localStorage 操作用 ----------------
+/* ===== 状態 & localStorage ===== */
 let papers = [], currentPage = 1, currentLang = 'en';
 let currentView = 'all', currentTag = null, searchKeywords = [];
 
@@ -45,11 +36,11 @@ const store = {
   keyNotes:        'rpv_notes',
   keyTags:         'rpv_tags',
   keyCheckpointID: 'rpv_checkpoint',
-  load(k, def){ try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
-  save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+  load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d; } },
+  save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 };
 
-// ----------- DOM 要素 ----------------
+/* ===== DOM ===== */
 const $content          = document.getElementById('content');
 const $paginationTop    = document.getElementById('pagination-top');
 const $paginationBottom = document.getElementById('pagination');
@@ -64,7 +55,7 @@ const $searchBtn        = document.getElementById('search-btn');
 const $loginBtn         = document.getElementById('login-btn');
 const $logoutBtn        = document.getElementById('logout-btn');
 
-// ----------- イベント登録 ----------------
+/* ===== イベント ===== */
 window.addEventListener('DOMContentLoaded', init);
 $langEnBtn.addEventListener('click', () => setLanguage('en'));
 $langJaBtn.addEventListener('click', () => setLanguage('ja'));
@@ -74,42 +65,39 @@ $btnTags.addEventListener('click', () => setView('tags'));
 $btnJump.addEventListener('click', jumpToCheckpoint);
 $searchBtn.addEventListener('click', applySearch);
 $searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') applySearch(); });
-$loginBtn .addEventListener('click',  () => signInWithPopup(auth, new GoogleAuthProvider()));
-$logoutBtn.addEventListener('click',  () => signOut(auth));
+$loginBtn .addEventListener('click', () => signInWithPopup(auth, new GoogleAuthProvider()));
+$logoutBtn.addEventListener('click', () => signOut(auth));
 
-// ----------- 初期化処理 ----------------
+/* ===== 初期化 ===== */
 async function init(){
-  clearLocalNotes()
-  try {
+  try{
     const res = await fetch(DATA_FILE);
     papers = await res.json();
-  } catch(e) {
+  }catch(e){
     $content.textContent = 'Failed to load ' + DATA_FILE;
-    console.error(e);
-    return;
+    console.error(e); return;
   }
-  papers.forEach(p => {
+  papers.forEach(p=>{
     p.search_en = [
-      p.title, p.authors, p.journal,
-      p.summary_english, p.problem_english,
-      p.method_english,  p.results_english
+      p.title,p.authors,p.journal,p.summary_english,p.problem_english,
+      p.method_english,p.results_english
     ].join(' ').toLowerCase();
     p.search_ja = [
-      p.title, p.authors, p.journal,
-      p.summary_japanese, p.problem_japanese,
-      p.method_japanese,  p.results_japanese
+      p.title,p.authors,p.journal,p.summary_japanese,p.problem_japanese,
+      p.method_japanese,p.results_japanese
     ].join(' ').toLowerCase();
   });
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      $loginBtn.style.display  = 'none';
-      $logoutBtn.style.display = 'inline-block';
+
+  onAuthStateChanged(auth, user=>{
+    if(user){
+      $loginBtn.style.display='none';
+      $logoutBtn.style.display='inline-block';
       setUserId(analytics, user.uid);
       syncFromCloud(user.uid);
       subscribeCloud(user.uid);
-    } else {
-      $loginBtn.style.display  = 'inline-block';
-      $logoutBtn.style.display = 'none';
+    }else{
+      $loginBtn.style.display='inline-block';
+      $logoutBtn.style.display='none';
       setUserId(analytics, null);
     }
   });
@@ -422,55 +410,77 @@ function createCard(p){
 }
 
 /* ===================== 操作ロジック ===================== */
-function toggleBookmark(id){
-  let bm = store.load(store.keyBookmarks,[]);
-  const idx = bm.indexOf(id);
-  if(idx>=0) bm.splice(idx,1); else bm.push(id);
-  store.save(store.keyBookmarks,bm); render();
-}
 
-function saveNote(id, text){
-  const notes = store.load(store.keyNotes,{});
-  if(text.trim()) notes[id]=text; else delete notes[id];
-  store.save(store.keyNotes,notes);
-}
-
-function addTag(id, tag){
-  const tags = store.load(store.keyTags,{});
-  tags[id] = Array.from(new Set([...(tags[id]??[]), tag]));
-  store.save(store.keyTags,tags);
-}
-
-function removeTag(id, tag){
-  const tags = store.load(store.keyTags,{});
-  if(tags[id]) tags[id] = tags[id].filter(t=>t!==tag);
-  store.save(store.keyTags,tags); render();
-}
-
-function renderTagListView(){
-  $content.innerHTML='';
-  const tags = store.load(store.keyTags,{});
-  const all = new Set(Object.values(tags).flat());
-  if(all.size===0){ $content.textContent='No tags yet.'; return; }
-  const wrap=document.createElement('div'); wrap.className='controls';
-  all.forEach(t=>{
-    const b=document.createElement('button');
-    b.textContent=`${t} (${countTag(t)})`;
-    b.onclick=()=>setView('tags',t);
-    wrap.appendChild(b);
-  });
-  $content.appendChild(wrap);
-
-  function countTag(tag){
-    return Object.values(tags).filter(arr=>arr.includes(tag)).length;
+function pushCloud(){
+    const user = auth.currentUser;
+    if (user) saveStateToCloud(user.uid);
   }
-}
-
-function setCheckpoint(id){
-  store.save(store.keyCheckpointID, id);
-  render();
-  alert('Checkpoint saved!');
-}
+  
+  /* --- ブックマーク切替 --- */
+  function toggleBookmark(id){
+    const bm = store.load(store.keyBookmarks, []);
+    const idx = bm.indexOf(id);
+    if (idx >= 0) bm.splice(idx,1); else bm.push(id);
+    store.save(store.keyBookmarks, bm);
+    render();
+    pushCloud();
+  }
+  
+  /* --- メモ保存 --- */
+  function saveNote(id, text){
+    const notes = store.load(store.keyNotes,{});
+    text.trim() ? notes[id] = text : delete notes[id];
+    store.save(store.keyNotes, notes);
+    render();
+    pushCloud();
+  }
+  
+  /* --- タグ追加 --- */
+  function addTag(id, tag){
+    const tags = store.load(store.keyTags,{});
+    tags[id] = Array.from(new Set([...(tags[id]||[]), tag]));
+    store.save(store.keyTags, tags);
+    render();
+    pushCloud();
+  }
+  
+  /* --- タグ削除 --- */
+  function removeTag(id, tag){
+    const tags = store.load(store.keyTags,{});
+    if (tags[id]) tags[id] = tags[id].filter(t=>t!==tag);
+    store.save(store.keyTags, tags);
+    render();
+    pushCloud();
+  }
+  
+  /* --- タグ一覧ビュー --- */
+  function renderTagListView(){
+    $content.innerHTML='';
+    const tags = store.load(store.keyTags,{});
+    const all  = new Set(Object.values(tags).flat());
+    if (all.size===0){ $content.textContent='No tags yet.'; return; }
+    const wrap = document.createElement('div'); wrap.className='controls';
+    all.forEach(t=>{
+      const b=document.createElement('button');
+      b.textContent=`${t} (${countTag(t)})`;
+      b.onclick = ()=>setView('tags', t);
+      wrap.appendChild(b);
+    });
+    $content.appendChild(wrap);
+  
+    function countTag(tag){
+      return Object.values(tags).filter(arr=>arr.includes(tag)).length;
+    }
+  }
+  
+  /* --- チェックポイント設定 --- */
+  function setCheckpoint(id){
+    store.save(store.keyCheckpointID, id);
+    render();
+    alert('Checkpoint saved!');
+    pushCloud();
+  }
+  
 
 /* ---------- ★ jumpToCheckpoint ---------- */
 function jumpToCheckpoint(){
