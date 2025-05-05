@@ -1,40 +1,68 @@
-const PAGE_SIZE = 20;              // 一覧 1 ページあたりの件数
-const DATA_FILE = 'CHI2025_intermediate_summaries.json';// 読み込む JSON
+// main.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getAnalytics, setUserId } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
 
-// ----------- 状態 ----------------
-let papers = [];                // 取得した全論文
-let currentPage = 1;
-let currentLang = 'en';         // 'en' or 'ja'
-let currentView = 'all';        // 'all' | 'bookmarks' | 'tags'
-let currentTag  = null;         // tags view 時の選択タグ
-let searchKeywords = [];        // AND 検索キーワード（小文字化済み）
+// ----------- 設定 ----------------
+const PAGE_SIZE = 20;
+const DATA_FILE = 'CHI2025_intermediate_summaries.json';
 
-// ----------- 永続データ (localStorage) -------------
+// ----------- Firebase 初期化 ----------------
+const firebaseConfig = {
+    apiKey: "AIzaSyAJitOyeUsXrJ0Y9WmjLzFILpw808verL0",
+    authDomain: "serendipitywall.firebaseapp.com",
+    projectId: "serendipitywall",
+    storageBucket: "serendipitywall.firebasestorage.app",
+    messagingSenderId: "1045879297647",
+    appId: "1:1045879297647:web:dd5f83773b3dc796ca9f9a",
+    measurementId: "G-LC3BG63D92"
+  };
+const app       = initializeApp(firebaseConfig);
+const auth      = getAuth(app);
+const db        = getFirestore(app);
+const analytics = getAnalytics(app);
+
+// ----------- 状態 & localStorage 操作用 ----------------
+let papers = [], currentPage = 1, currentLang = 'en';
+let currentView = 'all', currentTag = null, searchKeywords = [];
+
 const store = {
   keyBookmarks:    'rpv_bookmarks',
   keyNotes:        'rpv_notes',
   keyTags:         'rpv_tags',
   keyCheckpointID: 'rpv_checkpoint',
-
-  load (k, def){
-    try{ return JSON.parse(localStorage.getItem(k)) ?? def; }
-    catch(e){ return def; }
-  },
-  save (k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+  load(k, def){ try { return JSON.parse(localStorage.getItem(k)) ?? def; } catch { return def; } },
+  save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
 };
 
 // ----------- DOM 要素 ----------------
-const $content         = document.getElementById('content');
-const $paginationTop   = document.getElementById('pagination-top');
-const $paginationBottom= document.getElementById('pagination');
-const $langEnBtn       = document.getElementById('lang-en');
-const $langJaBtn       = document.getElementById('lang-ja');
-const $btnAll          = document.getElementById('view-all');
-const $btnBM           = document.getElementById('view-bookmarks');
-const $btnTags         = document.getElementById('view-tags');
-const $btnJump         = document.getElementById('jump-checkpoint');
-const $searchInput     = document.getElementById('search-input');
-const $searchBtn       = document.getElementById('search-btn');
+const $content          = document.getElementById('content');
+const $paginationTop    = document.getElementById('pagination-top');
+const $paginationBottom = document.getElementById('pagination');
+const $langEnBtn        = document.getElementById('lang-en');
+const $langJaBtn        = document.getElementById('lang-ja');
+const $btnAll           = document.getElementById('view-all');
+const $btnBM            = document.getElementById('view-bookmarks');
+const $btnTags          = document.getElementById('view-tags');
+const $btnJump          = document.getElementById('jump-checkpoint');
+const $searchInput      = document.getElementById('search-input');
+const $searchBtn        = document.getElementById('search-btn');
+const $loginBtn         = document.getElementById('login-btn');
+const $logoutBtn        = document.getElementById('logout-btn');
 
 // ----------- イベント登録 ----------------
 window.addEventListener('DOMContentLoaded', init);
@@ -45,47 +73,58 @@ $btnBM  .addEventListener('click', () => setView('bookmarks'));
 $btnTags.addEventListener('click', () => setView('tags'));
 $btnJump.addEventListener('click', jumpToCheckpoint);
 $searchBtn.addEventListener('click', applySearch);
-$searchInput.addEventListener('keydown', e => { if(e.key==='Enter') applySearch(); });
+$searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') applySearch(); });
+$loginBtn .addEventListener('click',  () => signInWithPopup(auth, new GoogleAuthProvider()));
+$logoutBtn.addEventListener('click',  () => signOut(auth));
 
-// ----------- 初期化 ----------------
+// ----------- 初期化処理 ----------------
 async function init(){
-  try{
+  clearLocalNotes()
+  try {
     const res = await fetch(DATA_FILE);
     papers = await res.json();
-  }catch(e){
+  } catch(e) {
     $content.textContent = 'Failed to load ' + DATA_FILE;
     console.error(e);
     return;
   }
-
-  /* ① ========= 事前に全文検索用文字列を生成 ========= */
-  papers.forEach(p=>{
+  papers.forEach(p => {
     p.search_en = [
       p.title, p.authors, p.journal,
-      p.summary_english||'', p.problem_english||'',
-      p.method_english||'',  p.results_english||''
+      p.summary_english, p.problem_english,
+      p.method_english,  p.results_english
     ].join(' ').toLowerCase();
-
     p.search_ja = [
       p.title, p.authors, p.journal,
-      p.summary_japanese||'', p.problem_japanese||'',
-      p.method_japanese||'',  p.results_japanese||''
+      p.summary_japanese, p.problem_japanese,
+      p.method_japanese,  p.results_japanese
     ].join(' ').toLowerCase();
   });
-  /* ================================================ */
-
-  setLanguage(currentLang); // 初期レンダリング
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      $loginBtn.style.display  = 'none';
+      $logoutBtn.style.display = 'inline-block';
+      setUserId(analytics, user.uid);
+      syncFromCloud(user.uid);
+      subscribeCloud(user.uid);
+    } else {
+      $loginBtn.style.display  = 'inline-block';
+      $logoutBtn.style.display = 'none';
+      setUserId(analytics, null);
+    }
+  });
+  setLanguage(currentLang);
 }
 
-/* ===================== 言語切替 ===================== */
+// ----------- 言語切替 ----------------
 function setLanguage(lang){
   currentLang = lang;
-  $langEnBtn.classList.toggle('lang-active', lang==='en');
-  $langJaBtn.classList.toggle('lang-active', lang==='ja');
+  $langEnBtn.classList.toggle('lang-active', lang === 'en');
+  $langJaBtn.classList.toggle('lang-active', lang === 'ja');
   render();
 }
 
-/* ===================== キーワード検索適用 ===================== */
+// ----------- 検索適用 ----------------
 function applySearch(){
   const raw = $searchInput.value.trim().toLowerCase();
   searchKeywords = raw ? raw.split(/\s+/) : [];
@@ -93,14 +132,101 @@ function applySearch(){
   render();
 }
 
-/* ===================== 画面レンダリング ===================== */
-function setView(v, tag=null){
+// ----------- ビュー切替 ----------------
+function setView(v, tag = null){
   currentView = v; currentTag = tag; currentPage = 1;
-  [$btnAll,$btnBM,$btnTags].forEach(b=>b.classList.remove('active'));
-  if(v==='all')       $btnAll.classList.add('active');
-  else if(v==='bookmarks') $btnBM.classList.add('active');
-  else if(v==='tags')      $btnTags.classList.add('active');
+  [$btnAll, $btnBM, $btnTags].forEach(b => b.classList.remove('active'));
+  if (v === 'all')         $btnAll.classList.add('active');
+  else if (v === 'bookmarks') $btnBM.classList.add('active');
+  else if (v === 'tags')      $btnTags.classList.add('active');
   render();
+}
+
+// ----------- マージ用ユーティリティ関数 ------------
+function mergeBookmarks(local, remote) {
+  return Array.from(new Set([...(local||[]), ...(remote||[])]));
+}
+function mergeNotes(local = {}, remote = {}) {
+  const result = {};
+  const allIDs = new Set([...Object.keys(local), ...Object.keys(remote)]);
+  allIDs.forEach(id => {
+    const r = remote[id], l = local[id];
+    if (r != null && l != null) {
+      result[id] = `クラウド：${r}\n\nブラウザ：${l}`;
+    } else {
+      result[id] = l != null ? l : r;
+    }
+  });
+  return result;
+}
+function mergeTags(local, remote) {
+  const allKeys = new Set([...Object.keys(local||{}), ...Object.keys(remote||{})]);
+  const merged = {};
+  allKeys.forEach(id => {
+    const a = remote[id] || [];
+    const b = local[id]  || [];
+    merged[id] = Array.from(new Set([...a, ...b]));
+  });
+  return merged;
+}
+
+// ----------- クラウド → ローカル同期 (初回) ----------
+async function syncFromCloud(uid){
+  const docRef = doc(collection(db, 'user_states'), uid);
+  const snap   = await getDoc(docRef);
+  if (snap.exists()) {
+    const r  = snap.data();
+    const lB = store.load(store.keyBookmarks, []);
+    const lN = store.load(store.keyNotes, {});
+    const lT = store.load(store.keyTags, {});
+    const lC = store.load(store.keyCheckpointID, null);
+    const mB = mergeBookmarks(lB, r.bookmarks);
+    const mN = mergeNotes(lN, r.notes);
+    const mT = mergeTags(lT, r.tags);
+    const mC = lC || r.checkpoint || null;
+    store.save(store.keyBookmarks,    mB);
+    store.save(store.keyNotes,        mN);
+    store.save(store.keyTags,         mT);
+    store.save(store.keyCheckpointID, mC);
+    render();
+    await saveStateToCloud(uid);
+  } else {
+    await saveStateToCloud(uid);
+  }
+}
+
+// ----------- リアルタイム同期 ----------------
+function subscribeCloud(uid){
+  const docRef = doc(collection(db, 'user_states'), uid);
+  onSnapshot(docRef, snap => {
+    if (!snap.exists()) return;
+    const r  = snap.data();
+    const lB = store.load(store.keyBookmarks, []);
+    const lN = store.load(store.keyNotes, {});
+    const lT = store.load(store.keyTags, {});
+    const lC = store.load(store.keyCheckpointID, null);
+    const mB = mergeBookmarks(lB, r.bookmarks);
+    const mN = mergeNotes(lN, r.notes);
+    const mT = mergeTags(lT, r.tags);
+    const mC = lC || r.checkpoint || null;
+    store.save(store.keyBookmarks,    mB);
+    store.save(store.keyNotes,        mN);
+    store.save(store.keyTags,         mT);
+    store.save(store.keyCheckpointID, mC);
+    render();
+  });
+}
+
+// ----------- ローカル → クラウド同期 -------------
+async function saveStateToCloud(uid){
+  const docRef = doc(collection(db, 'user_states'), uid);
+  const data = {
+    bookmarks:  store.load(store.keyBookmarks, []),
+    notes:      store.load(store.keyNotes, {}),
+    tags:       store.load(store.keyTags, {}),
+    checkpoint: store.load(store.keyCheckpointID, null)
+  };
+  await setDoc(docRef, data);
 }
 
 function render(){

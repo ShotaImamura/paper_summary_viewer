@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Research Papers Viewer</title>
+  <title>Research Papers Viewer for CHI2025</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css">
+
+  <!-- ★ Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LC3BG63D92"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-LC3BG63D92');
+  </script>
 </head>
 <body>
   <header>
-    <h1>Research Papers Viewer</h1>
+    <h1>Research Papers Viewer for CHI2025</h1>
 
     <nav id="top-controls">
       <!-- 言語切替 -->
@@ -23,22 +32,20 @@
       <button id="view-tags">Tags</button>
       <button id="jump-checkpoint">Jump to Checkpoint</button>
 
-      <!-- 検索機能追加 -->
+      <!-- 検索機能 -->
       <div class="search-container">
         <input type="text" id="search-input" class="search-input" placeholder="Search keywords…">
         <button id="search-btn" class="search-btn">Search</button>
       </div>
+      <button id="login-btn"  class="nav-btn">Login with Google</button>
+      <button id="logout-btn" class="nav-btn" style="display:none;">Logout</button>
     </nav>
   </header>
 
   <div id="pagination-top"></div>
-
   <main id="content"></main>
+  <footer><div id="pagination"></div></footer>
 
-  <footer>
-    <div id="pagination"></div>
-  </footer>
-
-  <script src="main.js"></script>
+  <script type="module" src="main.js"></script>
 </body>
 </html>
